@@ -1,0 +1,76 @@
+#!/bin/bash
+
+# Default variables
+file_path=""
+sn=false
+tr=false
+gr=false
+file_path=""
+
+# Options processing
+while [[ "$#" -gt 0 ]]; do
+  case $1 in
+    -s)
+      sn=true
+      ;;
+    -t)
+      tr=true
+      ;;
+    -g)
+      gr=true
+      ;;
+    -f)
+      shift
+      file_path="$1"
+      ;;
+    *)
+      echo "Option no valid or missing argument: $1"
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+# Verify if the file exists
+if [ ! -f "$file_path" ]; then
+  echo "File does not exist: $file_path"
+  exit 1
+fi
+
+#Connect to snyk if needed
+if [ "$sn" == true ];
+then
+snyk auth <auth-token>
+fi
+
+while IFS= read -r line; do
+  # Process each line here
+  name=$(basename ${line})
+  resPath="/home/pere/results/${name}"
+  if [ ! -d "$resPath" ]; then
+  	mkdir -p "$resPath"
+  fi
+  outputSnyk="$resPath/Snyk.txt"
+  outputTrivy="$resPath/Trivy.txt"
+  outputGrype="$resPath/Grype.txt"
+  if [ ! -d "/home/pere/${name}" ]; 
+  then
+  	git clone $line
+  fi
+  if [ "$sn" == true ];
+  then
+    snyk test --all-projects --json  "/home/pere/${name}" >"$outputSnyk"
+  fi
+  if [ "$tr" == true ];
+  then 
+    trivy repository ${line} -f json --scanners vuln >"$outputTrivy"
+  fi
+  if [ "$gr" == true ];
+  then
+    grype "/home/pere/${name}" --add-cpes-if-none  --scope all-layers -o json > "$outputGrype"
+  fi
+  if [ -n "$name" ]; 
+  then 
+    rm -r "/home/pere/${name}"
+  fi
+done < "$file_path"
